@@ -452,12 +452,12 @@
   }
 
   function isExcludedNativeText(text) {
-    const lower = text.toLowerCase();
-    const excluded = [
+    const cleanText = normalizePromptText(text);
+    const lower = cleanText.toLowerCase();
+    const exactExcluded = [
       "new chat",
       "search",
       "library",
-      "explore gpts",
       "settings",
       "upgrade",
       "log out",
@@ -467,13 +467,44 @@
       "sora",
       "today",
       "yesterday",
-      "previous 7 days",
-      "previous 30 days",
       "projects",
-      "gpts"
+      "gpts",
+      "thinking",
+      "think",
+      "deep research",
+      "create image",
+      "write or code",
+      "新建聊天",
+      "搜索",
+      "设置",
+      "帮助",
+      "项目",
+      "查找资料",
+      "生成图片",
+      "撰写或编辑",
+      "临时聊天"
+    ];
+    const partialExcluded = [
+      "explore gpts",
+      "previous 7 days",
+      "previous 30 days"
     ];
 
-    return excluded.some((item) => lower === item || lower.includes(item));
+    return exactExcluded.includes(lower) || partialExcluded.some((item) => lower.includes(item));
+  }
+
+  function hasRenderedConversationMessages() {
+    return Boolean(
+      document.querySelector(
+        [
+          USER_SELECTOR,
+          ASSISTANT_SELECTOR,
+          '[data-turn="user"]',
+          '[data-turn="assistant"]',
+          "[data-turn-id]"
+        ].join(", ")
+      )
+    );
   }
 
   function isInsideLeftSidebar(element) {
@@ -884,6 +915,10 @@
     const turnDomItems = getTurnDomPromptItems();
     if (turnDomItems.length > 0) {
       return turnDomItems;
+    }
+
+    if (!hasRenderedConversationMessages()) {
+      return [];
     }
 
     const rightNavItems = getRightSideCurrentConversationPromptNavItems();
