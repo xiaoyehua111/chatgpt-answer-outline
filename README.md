@@ -18,7 +18,7 @@ ChatGPT Answer Outline is a Chrome Extension Manifest V3 project for ChatGPT. It
 - Click an answer heading to jump to that heading.
 - Movable and resizable floating panel.
 - Collapsible panel; the collapsed button can also be moved.
-- Light mode and dark mode support.
+- Light mode and dark mode support, following the current ChatGPT page theme.
 
 ## Privacy
 

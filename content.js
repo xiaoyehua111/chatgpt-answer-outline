@@ -1,6 +1,8 @@
 (function () {
   const PANEL_ID = "cao-answer-outline-panel";
   const COLLAPSED_CLASS = "cao-panel--collapsed";
+  const DARK_THEME_CLASS = "cao-panel--dark";
+  const LIGHT_THEME_CLASS = "cao-panel--light";
   const BODY_CLASS = "cao-panel__body";
   const SEARCH_INPUT_ID = "cao-question-search";
   const MESSAGE_SELECTOR = "[data-message-author-role]";
@@ -20,6 +22,7 @@
   let lastRevealTime = 0;
   let dragState = null;
   let resizeState = null;
+  let themeObserver = null;
   let fiberBridgeInjected = false;
   const fiberPromptTextCache = new Map();
   const expandedPromptIds = new Set();
@@ -43,6 +46,79 @@
   function requestFiberPromptTexts() {
     injectFiberBridge();
     document.dispatchEvent(new CustomEvent("cao-extract-fiber-prompts"));
+  }
+
+  function getRgbLuminance(color) {
+    const match = String(color || "").match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/i);
+    if (!match) {
+      return null;
+    }
+
+    const [, red, green, blue, alpha] = match.map(Number);
+    if (Number.isFinite(alpha) && alpha === 0) {
+      return null;
+    }
+
+    return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+  }
+
+  function isPageDarkTheme() {
+    const root = document.documentElement;
+    const body = document.body;
+    const nodes = [root, body].filter(Boolean);
+
+    if (nodes.some((node) => node.classList?.contains("dark"))) {
+      return true;
+    }
+
+    if (nodes.some((node) => String(node.getAttribute("data-theme") || "").toLowerCase() === "dark")) {
+      return true;
+    }
+
+    const colorSchemes = nodes
+      .flatMap((node) => [node.style?.colorScheme || "", getComputedStyle(node).colorScheme || ""])
+      .map((value) => String(value).trim().toLowerCase())
+      .filter(Boolean);
+
+    if (colorSchemes.some((value) => value === "dark" || value.startsWith("dark ") || value.includes("only dark"))) {
+      return true;
+    }
+
+    const bodyLuminance = getRgbLuminance(getComputedStyle(body || root).backgroundColor);
+    const rootLuminance = getRgbLuminance(getComputedStyle(root).backgroundColor);
+    const luminance = bodyLuminance ?? rootLuminance;
+
+    if (luminance !== null) {
+      return luminance < 0.45;
+    }
+
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches || false;
+  }
+
+  function applyPanelTheme(panel) {
+    const isDark = isPageDarkTheme();
+    panel.classList.toggle(DARK_THEME_CLASS, isDark);
+    panel.classList.toggle(LIGHT_THEME_CLASS, !isDark);
+  }
+
+  function setupPanelThemeSync(panel) {
+    applyPanelTheme(panel);
+
+    const syncTheme = () => applyPanelTheme(panel);
+    const colorSchemeQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
+    colorSchemeQuery?.addEventListener?.("change", syncTheme);
+
+    if (themeObserver) {
+      themeObserver.disconnect();
+    }
+
+    themeObserver = new MutationObserver(syncTheme);
+    [document.documentElement, document.body].filter(Boolean).forEach((node) => {
+      themeObserver.observe(node, {
+        attributes: true,
+        attributeFilter: ["class", "style", "data-theme"]
+      });
+    });
   }
 
   document.addEventListener("cao-fiber-prompts-result", (event) => {
@@ -75,6 +151,19 @@
     const header = document.createElement("div");
     header.className = "cao-panel__header";
     header.setAttribute("title", "\u62d6\u52a8\u79fb\u52a8\u5bfc\u822a\u9762\u677f");
+
+    const headerText = document.createElement("div");
+    headerText.className = "cao-panel__heading";
+
+    const headerTitle = document.createElement("div");
+    headerTitle.className = "cao-panel__heading-title";
+    headerTitle.textContent = "\u5f53\u524d\u5bf9\u8bdd";
+
+    const headerSubtitle = document.createElement("div");
+    headerSubtitle.className = "cao-panel__heading-subtitle";
+    headerSubtitle.textContent = "\u95ee\u9898\u4e0e\u56de\u7b54\u76ee\u5f55";
+
+    headerText.append(headerTitle, headerSubtitle);
 
     const toggleButton = document.createElement("button");
     toggleButton.type = "button";
@@ -119,10 +208,11 @@
       renderNavigator(currentPromptItems);
     });
 
-    header.appendChild(toggleButton);
+    header.append(headerText, toggleButton);
     searchWrap.appendChild(searchInput);
     panel.append(header, searchWrap, body, ...resizeHandles);
     document.body.appendChild(panel);
+    setupPanelThemeSync(panel);
     setupPanelDrag(panel, header, toggleButton);
     setupPanelResize(panel, resizeHandles);
     return panel;
