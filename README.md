@@ -1,4 +1,4 @@
-# ChatGPT 当前回答目录
+# ChatGPT Answer Outline
 
 一个用于 ChatGPT 网页的 Chrome 扩展。它会在页面右侧显示可移动、可缩放的悬浮导航，帮助你快速浏览当前会话里的问题，并展开查看对应回答里的 Markdown 标题目录。
 
